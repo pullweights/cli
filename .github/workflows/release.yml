@@ -92,3 +92,78 @@ jobs:
         with:
           generate_release_notes: true
           files: artifacts/**/*
+
+  update-homebrew:
+    name: Update Homebrew Tap
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: pullweights/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Update formula
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          sha_darwin_arm64=$(shasum -a 256 artifacts/pullweights-darwin-arm64/pullweights-darwin-arm64 | awk '{print $1}')
+          sha_darwin_amd64=$(shasum -a 256 artifacts/pullweights-darwin-amd64/pullweights-darwin-amd64 | awk '{print $1}')
+          sha_linux_arm64=$(shasum -a 256 artifacts/pullweights-linux-arm64/pullweights-linux-arm64 | awk '{print $1}')
+          sha_linux_amd64=$(shasum -a 256 artifacts/pullweights-linux-amd64/pullweights-linux-amd64 | awk '{print $1}')
+
+          cat > Formula/pullweights.rb << FORMULA
+          class Pullweights < Formula
+            desc "CLI for PullWeights — the decentralized AI model registry"
+            homepage "https://github.com/pullweights/cli"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/pullweights/cli/releases/download/v#{version}/pullweights-darwin-arm64"
+                sha256 "${sha_darwin_arm64}"
+              else
+                url "https://github.com/pullweights/cli/releases/download/v#{version}/pullweights-darwin-amd64"
+                sha256 "${sha_darwin_amd64}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/pullweights/cli/releases/download/v#{version}/pullweights-linux-arm64"
+                sha256 "${sha_linux_arm64}"
+              else
+                url "https://github.com/pullweights/cli/releases/download/v#{version}/pullweights-linux-amd64"
+                sha256 "${sha_linux_amd64}"
+              end
+            end
+
+            def install
+              binary = Dir.glob("pullweights-*").first
+              mv binary, "pullweights"
+              bin.install "pullweights"
+            end
+
+            test do
+              assert_match "pullweights", shell_output("#{bin}/pullweights --version")
+            end
+          end
+          FORMULA
+
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' Formula/pullweights.rb
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/pullweights.rb
+          git commit -m "Update pullweights to ${GITHUB_REF_NAME}"
+          git push
