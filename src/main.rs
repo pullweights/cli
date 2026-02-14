@@ -1,17 +1,6 @@
-mod api_key;
-mod auth;
-mod checksum;
-mod config;
-mod inspect;
-mod manifest;
-mod pull;
-mod push;
-mod search;
-mod tags;
-mod utils;
-mod verify;
-
 use clap::{Parser, Subcommand};
+
+use pullweights_cli::{api_key, auth, config, inspect, pull, push, search, tags, utils, verify};
 
 #[derive(Parser)]
 #[command(name = "pullweights")]
@@ -32,9 +21,6 @@ enum Commands {
     },
     /// Authenticate with an API key (for CI/CD or programmatic access)
     Auth {
-        /// API key (pw_... format). If omitted, reads from stdin.
-        #[arg(long)]
-        token: Option<String>,
         /// API URL override
         #[arg(long)]
         api_url: Option<String>,
@@ -152,7 +138,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::Login { api_url } => {
             auth::login(&api_url).await?;
         }
-        Commands::Auth { token, api_url } => {
+        Commands::Auth { api_url } => {
+            let token = std::env::var("PULLWEIGHTS_TOKEN").ok();
             auth::auth_with_key(token.as_deref(), api_url.as_deref()).await?;
         }
         Commands::Push {

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Write};
 
 use crate::config::CliConfig;
-use crate::utils::api_client;
+use crate::utils::{api_client, sanitize_error};
 
 #[derive(Serialize)]
 struct LoginRequest {
@@ -38,12 +38,7 @@ pub async fn login(api_url: &str) -> Result<()> {
         bail!("Email cannot be empty");
     }
 
-    // Prompt for password (no echo suppression in basic stdin, but functional)
-    eprint!("Password: ");
-    io::stderr().flush()?;
-    let mut password = String::new();
-    io::stdin().read_line(&mut password)?;
-    let password = password.trim().to_string();
+    let password = rpassword::prompt_password("Password: ").context("Failed to read password")?;
     if password.is_empty() {
         bail!("Password cannot be empty");
     }
@@ -61,7 +56,7 @@ pub async fn login(api_url: &str) -> Result<()> {
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Login failed ({status}): {body}");
+        bail!("Login failed ({status}): {}", sanitize_error(&body));
     }
 
     let login_resp: LoginResponse = resp.json().await.context("Invalid login response")?;

@@ -1,9 +1,9 @@
 use anyhow::{bail, Context, Result};
-use std::path::Path;
+use std::path::{Component, Path};
 
 use crate::checksum::sha256_reader;
 use crate::manifest::PullWeightsManifest;
-use crate::utils::{api_client, format_bytes, parse_model_ref};
+use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 
 pub async fn verify(api_url: &str, token: &str, model_ref: &str, dir: &str) -> Result<()> {
     let parsed = parse_model_ref(model_ref)?;
@@ -32,7 +32,10 @@ pub async fn verify(api_url: &str, token: &str, model_ref: &str, dir: &str) -> R
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Failed to fetch manifest ({status}): {body}");
+        bail!(
+            "Failed to fetch manifest ({status}): {}",
+            sanitize_error(&body)
+        );
     }
 
     let manifest: PullWeightsManifest = resp.json().await.context("Invalid manifest response")?;
@@ -49,6 +52,16 @@ pub async fn verify(api_url: &str, token: &str, model_ref: &str, dir: &str) -> R
     );
 
     for file in &manifest.files {
+        // Block path traversal: reject filenames with parent components
+        if Path::new(&file.filename)
+            .components()
+            .any(|c| matches!(c, Component::ParentDir))
+        {
+            println!("  ! {:<40} REJECTED (path traversal)", file.filename);
+            fail += 1;
+            continue;
+        }
+
         let file_path = base_dir.join(&file.filename);
 
         if !file_path.exists() {

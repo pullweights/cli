@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::checksum::sha256_hex;
-use crate::utils::{api_client, format_bytes, parse_model_ref};
+use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 
 // ---------------------------------------------------------------------------
 // API types
@@ -143,7 +143,7 @@ pub async fn push(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Push init failed ({status}): {body}");
+        bail!("Push init failed ({status}): {}", sanitize_error(&body));
     }
 
     let init_resp: PushInitResponse = resp.json().await.context("Invalid push init response")?;
@@ -182,8 +182,9 @@ pub async fn push(
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             bail!(
-                "S3 upload failed for {} ({status}): {body}",
-                upload.filename
+                "S3 upload failed for {} ({status}): {}",
+                upload.filename,
+                sanitize_error(&body)
             );
         }
 
@@ -212,7 +213,7 @@ pub async fn push(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Push finalize failed ({status}): {body}");
+        bail!("Push finalize failed ({status}): {}", sanitize_error(&body));
     }
 
     let finalize_resp: PushFinalizeResponse = resp

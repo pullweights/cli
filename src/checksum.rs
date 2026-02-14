@@ -31,7 +31,6 @@ impl StreamingHasher {
         hex::encode(self.hasher.finalize())
     }
 
-    #[allow(dead_code)]
     pub fn bytes_processed(&self) -> u64 {
         self.bytes_processed
     }

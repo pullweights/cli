@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 
 use crate::manifest::PullWeightsManifest;
-use crate::utils::{api_client, parse_model_ref};
+use crate::utils::{api_client, parse_model_ref, sanitize_error};
 
 pub async fn inspect(api_url: &str, token: &str, model_ref: &str) -> Result<()> {
     let parsed = parse_model_ref(model_ref)?;
@@ -25,7 +25,7 @@ pub async fn inspect(api_url: &str, token: &str, model_ref: &str) -> Result<()> 
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Inspect failed ({status}): {body}");
+        bail!("Inspect failed ({status}): {}", sanitize_error(&body));
     }
 
     let manifest: PullWeightsManifest = resp.json().await.context("Invalid manifest response")?;

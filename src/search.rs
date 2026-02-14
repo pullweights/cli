@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 
-use crate::utils::api_client;
+use crate::utils::{api_client, sanitize_error};
 
 #[derive(Deserialize)]
 struct SearchResponse {
@@ -31,7 +31,7 @@ pub async fn search(api_url: &str, token: Option<&str>, query: &str, limit: u32)
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Search failed ({status}): {body}");
+        bail!("Search failed ({status}): {}", sanitize_error(&body));
     }
 
     let search_resp: SearchResponse = resp.json().await.context("Invalid search response")?;

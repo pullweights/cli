@@ -31,7 +31,6 @@ pub struct ManifestFile {
 }
 
 impl PullWeightsManifest {
-    #[allow(dead_code)]
     pub fn total_size(&self) -> u64 {
         self.files.iter().map(|f| f.size_bytes).sum()
     }

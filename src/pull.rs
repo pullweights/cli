@@ -1,11 +1,11 @@
 use anyhow::{bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Component, Path};
 use tokio::io::AsyncWriteExt;
 
 use crate::checksum::StreamingHasher;
-use crate::utils::{api_client, format_bytes, parse_model_ref};
+use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 
 #[derive(Deserialize)]
 struct PullResponse {
@@ -50,7 +50,7 @@ pub async fn pull(api_url: &str, token: &str, model_ref: &str, output: &str) -> 
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Pull failed ({status}): {body}");
+        bail!("Pull failed ({status}): {}", sanitize_error(&body));
     }
 
     let pull_resp: PullResponse = resp.json().await.context("Invalid pull response")?;
@@ -72,6 +72,17 @@ pub async fn pull(api_url: &str, token: &str, model_ref: &str, output: &str) -> 
     let mut checksum_errors: Vec<String> = Vec::new();
 
     for download in &pull_resp.files {
+        // Block path traversal: reject filenames with parent components
+        if Path::new(&download.filename)
+            .components()
+            .any(|c| matches!(c, Component::ParentDir))
+        {
+            bail!(
+                "Refusing to download '{}': path traversal detected",
+                download.filename
+            );
+        }
+
         let pb = multi_progress.add(ProgressBar::new(download.size_bytes));
         pb.set_style(sty.clone());
         pb.set_prefix(download.filename.clone());

@@ -72,10 +72,43 @@ pub fn require_token(config_token: Option<&str>) -> Result<String> {
     }
     config_token.map(|t| t.to_string()).ok_or_else(|| {
         anyhow::anyhow!(
-            "Not logged in. Run `pullweights login` or `pullweights auth --token pw_...` first.\n\
+            "Not logged in. Run `pullweights login` or `pullweights auth` first.\n\
              You can also set the PULLWEIGHTS_TOKEN environment variable."
         )
     })
+}
+
+/// Extract a user-friendly error message from an API response body.
+/// If the body is JSON with an `error.message` field, use that.
+/// Otherwise truncate the raw body to avoid leaking server internals.
+pub fn sanitize_error(body: &str) -> String {
+    #[derive(serde::Deserialize)]
+    struct ErrWrap {
+        error: ErrMsg,
+    }
+    #[derive(serde::Deserialize)]
+    struct ErrMsg {
+        message: String,
+    }
+
+    if let Ok(parsed) = serde_json::from_str::<ErrWrap>(body) {
+        return parsed.error.message;
+    }
+    // Also try a flat { "message": "..." }
+    #[derive(serde::Deserialize)]
+    struct FlatMsg {
+        message: String,
+    }
+    if let Ok(parsed) = serde_json::from_str::<FlatMsg>(body) {
+        return parsed.message;
+    }
+
+    // Truncate raw body to avoid leaking verbose server output
+    if body.len() > 200 {
+        format!("{}... (truncated)", &body[..200])
+    } else {
+        body.to_string()
+    }
 }
 
 /// Format byte count as human-readable string.
@@ -130,5 +163,95 @@ mod tests {
         assert_eq!(format_bytes(500), "500 B");
         assert_eq!(format_bytes(1024), "1.00 KB");
         assert_eq!(format_bytes(1_048_576), "1.00 MB");
+    }
+
+    #[test]
+    fn test_parse_model_ref_tag_with_dots() {
+        let r = parse_model_ref("org/model:v1.2.3").unwrap();
+        assert_eq!(r.org, "org");
+        assert_eq!(r.model, "model");
+        assert_eq!(r.tag.as_deref(), Some("v1.2.3"));
+    }
+
+    #[test]
+    fn test_parse_model_ref_multiple_slashes() {
+        // split_once: first slash splits, rest stays in model
+        let r = parse_model_ref("org/sub/model:tag").unwrap();
+        assert_eq!(r.org, "org");
+        assert_eq!(r.model, "sub/model");
+        assert_eq!(r.tag.as_deref(), Some("tag"));
+    }
+
+    #[test]
+    fn test_parse_model_ref_multiple_colons() {
+        // split_once on colon: first colon splits, rest stays in tag
+        let r = parse_model_ref("org/model:tag:extra").unwrap();
+        assert_eq!(r.org, "org");
+        assert_eq!(r.model, "model");
+        assert_eq!(r.tag.as_deref(), Some("tag:extra"));
+    }
+
+    #[test]
+    fn test_model_ref_display_with_tag() {
+        let r = ModelRef {
+            org: "meta".to_string(),
+            model: "llama".to_string(),
+            tag: Some("v1".to_string()),
+        };
+        assert_eq!(format!("{r}"), "meta/llama:v1");
+    }
+
+    #[test]
+    fn test_model_ref_display_without_tag() {
+        let r = ModelRef {
+            org: "meta".to_string(),
+            model: "llama".to_string(),
+            tag: None,
+        };
+        assert_eq!(format!("{r}"), "meta/llama");
+    }
+
+    #[test]
+    fn test_format_bytes_boundaries() {
+        assert_eq!(format_bytes(0), "0 B");
+        assert_eq!(format_bytes(1024 * 1024 * 1024), "1.00 GB");
+        assert_eq!(format_bytes(1024u64 * 1024 * 1024 * 1024), "1.00 TB");
+    }
+
+    #[test]
+    fn test_api_client_without_token() {
+        let client = api_client(None);
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_api_client_with_token() {
+        let client = api_client(Some("test-token"));
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_require_token_from_config() {
+        // Clear env var to ensure config is used
+        std::env::remove_var("PULLWEIGHTS_TOKEN");
+        let result = require_token(Some("my-tok"));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "my-tok");
+    }
+
+    #[test]
+    fn test_require_token_none() {
+        std::env::remove_var("PULLWEIGHTS_TOKEN");
+        let result = require_token(None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_require_token_env_override() {
+        std::env::set_var("PULLWEIGHTS_TOKEN", "env-token");
+        let result = require_token(Some("config-token"));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "env-token");
+        std::env::remove_var("PULLWEIGHTS_TOKEN");
     }
 }

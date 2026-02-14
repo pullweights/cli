@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 
-use crate::utils::{api_client, format_bytes, parse_model_ref};
+use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 
 #[derive(Deserialize)]
 struct TagInfo {
@@ -25,7 +25,7 @@ pub async fn list_tags(api_url: &str, token: &str, model_ref: &str) -> Result<()
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("Failed to list tags ({status}): {body}");
+        bail!("Failed to list tags ({status}): {}", sanitize_error(&body));
     }
 
     let tags: Vec<TagInfo> = resp.json().await.context("Invalid tags response")?;
