@@ -236,3 +236,64 @@ pub async fn revoke(api_url: &str, token: &str, id: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Datelike, Timelike};
+
+    #[test]
+    fn test_parse_comma_list_basic() {
+        let result = parse_comma_list("a,b,c");
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_parse_comma_list_with_spaces() {
+        let result = parse_comma_list("a , b , c");
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_parse_comma_list_empty_segments() {
+        let result = parse_comma_list("a,,b,,,c");
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_parse_comma_list_single() {
+        let result = parse_comma_list("model:read");
+        assert_eq!(result, vec!["model:read"]);
+    }
+
+    #[test]
+    fn test_parse_comma_list_empty_string() {
+        let result = parse_comma_list("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_expires_iso8601() {
+        let dt = parse_expires("2026-12-31T00:00:00Z").unwrap();
+        assert_eq!(dt.year(), 2026);
+        assert_eq!(dt.month(), 12);
+        assert_eq!(dt.day(), 31);
+    }
+
+    #[test]
+    fn test_parse_expires_date_only() {
+        let dt = parse_expires("2026-12-31").unwrap();
+        assert_eq!(dt.year(), 2026);
+        assert_eq!(dt.month(), 12);
+        assert_eq!(dt.day(), 31);
+        assert_eq!(dt.hour(), 23);
+        assert_eq!(dt.minute(), 59);
+        assert_eq!(dt.second(), 59);
+    }
+
+    #[test]
+    fn test_parse_expires_invalid() {
+        assert!(parse_expires("not-a-date").is_err());
+        assert!(parse_expires("").is_err());
+    }
+}

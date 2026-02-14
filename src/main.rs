@@ -1,17 +1,6 @@
-mod api_key;
-mod auth;
-mod checksum;
-mod config;
-mod inspect;
-mod manifest;
-mod pull;
-mod push;
-mod search;
-mod tags;
-mod utils;
-mod verify;
-
 use clap::{Parser, Subcommand};
+
+use pullweights_cli::{api_key, auth, config, inspect, pull, push, search, tags, utils, verify};
 
 #[derive(Parser)]
 #[command(name = "pullweights")]

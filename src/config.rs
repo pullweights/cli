@@ -27,8 +27,12 @@ impl CliConfig {
 
     pub fn load() -> Result<Self> {
         let path = Self::config_path()?;
+        Self::load_from(&path)
+    }
+
+    pub fn load_from(path: &PathBuf) -> Result<Self> {
         if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
+            let content = std::fs::read_to_string(path)?;
             Ok(toml::from_str(&content)?)
         } else {
             Ok(Self::default())
@@ -36,10 +40,18 @@ impl CliConfig {
     }
 
     pub fn save(&self) -> Result<()> {
-        let dir = Self::config_dir()?;
-        std::fs::create_dir_all(&dir)?;
+        let path = Self::config_path()?;
+        let dir = path.parent().ok_or_else(|| anyhow::anyhow!("Invalid config path"))?;
+        std::fs::create_dir_all(dir)?;
+        self.save_to(&path)
+    }
+
+    pub fn save_to(&self, path: &PathBuf) -> Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
         let content = toml::to_string_pretty(self)?;
-        std::fs::write(Self::config_path()?, content)?;
+        std::fs::write(path, content)?;
         Ok(())
     }
 
@@ -87,5 +99,107 @@ impl fmt::Display for CliConfig {
             self.cache_dir.as_deref().unwrap_or("~/.pullweights/cache")
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let cfg = CliConfig::default();
+        assert!(cfg.api_url.is_none());
+        assert!(cfg.token.is_none());
+        assert!(cfg.cache_dir.is_none());
+    }
+
+    #[test]
+    fn test_api_url_default() {
+        let cfg = CliConfig::default();
+        assert_eq!(cfg.api_url(), "https://api.pullweights.com");
+    }
+
+    #[test]
+    fn test_api_url_custom() {
+        let cfg = CliConfig {
+            api_url: Some("http://localhost:3000".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(cfg.api_url(), "http://localhost:3000");
+    }
+
+    #[test]
+    fn test_set_get_known_keys() {
+        let mut cfg = CliConfig::default();
+        cfg.set("api_url", "http://localhost").unwrap();
+        cfg.set("token", "tok123").unwrap();
+        cfg.set("cache_dir", "/tmp/cache").unwrap();
+        assert_eq!(cfg.get("api_url").as_deref(), Some("http://localhost"));
+        assert_eq!(cfg.get("token").as_deref(), Some("tok123"));
+        assert_eq!(cfg.get("cache_dir").as_deref(), Some("/tmp/cache"));
+    }
+
+    #[test]
+    fn test_set_unknown_key() {
+        let mut cfg = CliConfig::default();
+        assert!(cfg.set("nonexistent", "val").is_err());
+    }
+
+    #[test]
+    fn test_get_unknown_key() {
+        let cfg = CliConfig::default();
+        assert!(cfg.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_display_with_token() {
+        let cfg = CliConfig {
+            token: Some("secret".to_string()),
+            ..Default::default()
+        };
+        let display = format!("{cfg}");
+        assert!(display.contains("***"));
+        assert!(!display.contains("secret"));
+    }
+
+    #[test]
+    fn test_display_without_token() {
+        let cfg = CliConfig::default();
+        let display = format!("{cfg}");
+        assert!(display.contains("(not set)"));
+    }
+
+    #[test]
+    fn test_save_load_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let cfg = CliConfig {
+            api_url: Some("http://test.com".to_string()),
+            token: Some("tok".to_string()),
+            cache_dir: Some("/tmp/cache".to_string()),
+        };
+        cfg.save_to(&path).unwrap();
+        let loaded = CliConfig::load_from(&path).unwrap();
+        assert_eq!(loaded.api_url.as_deref(), Some("http://test.com"));
+        assert_eq!(loaded.token.as_deref(), Some("tok"));
+        assert_eq!(loaded.cache_dir.as_deref(), Some("/tmp/cache"));
+    }
+
+    #[test]
+    fn test_load_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nonexistent.toml");
+        let cfg = CliConfig::load_from(&path).unwrap();
+        assert!(cfg.api_url.is_none());
+        assert!(cfg.token.is_none());
+    }
+
+    #[test]
+    fn test_load_malformed_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.toml");
+        std::fs::write(&path, "not valid { toml [[[").unwrap();
+        assert!(CliConfig::load_from(&path).is_err());
     }
 }
