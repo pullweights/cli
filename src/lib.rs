@@ -3,6 +3,7 @@ pub mod auth;
 pub mod checksum;
 pub mod config;
 pub mod inspect;
+pub mod ls;
 pub mod manifest;
 pub mod oauth_server;
 pub mod pull;

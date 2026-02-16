@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 
-use pullweights_cli::{api_key, auth, config, inspect, pull, push, search, tags, utils, verify};
+use pullweights_cli::{
+    api_key, auth, config, inspect, ls, pull, push, search, tags, utils, verify,
+};
 
 #[derive(Parser)]
 #[command(name = "pullweights")]
@@ -31,6 +33,11 @@ enum Commands {
         /// API URL override
         #[arg(long)]
         api_url: Option<String>,
+    },
+    /// List models in an org, or list your orgs
+    Ls {
+        /// Organization name (omit to list your orgs)
+        org: Option<String>,
     },
     /// Push a model to the registry
     Push {
@@ -157,6 +164,12 @@ async fn main() -> anyhow::Result<()> {
         Commands::Auth { token, api_url } => {
             let token = token.or_else(|| std::env::var("PULLWEIGHTS_TOKEN").ok());
             auth::auth_with_key(token.as_deref(), api_url.as_deref()).await?;
+        }
+        Commands::Ls { org } => {
+            let cfg = config::CliConfig::load()?;
+            let token = utils::require_token(cfg.token.as_deref())?;
+            let api_url = resolve_api_url(&cfg);
+            ls::ls(&api_url, &token, org.as_deref()).await?;
         }
         Commands::Push {
             model_ref,
