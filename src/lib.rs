@@ -4,6 +4,7 @@ pub mod checksum;
 pub mod config;
 pub mod inspect;
 pub mod manifest;
+pub mod oauth_server;
 pub mod pull;
 pub mod push;
 pub mod search;

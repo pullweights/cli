@@ -13,11 +13,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Login to PullWeights registry with email/password
+    /// Login to PullWeights registry
     Login {
         /// API URL override
         #[arg(long, default_value = "https://api.pullweights.com")]
         api_url: String,
+        /// Login method: "browser" (OAuth) or "password" (email/password).
+        /// Omit for interactive menu.
+        #[arg(long)]
+        method: Option<String>,
     },
     /// Authenticate with an API key (for CI/CD or programmatic access)
     Auth {
@@ -135,8 +139,15 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Login { api_url } => {
-            auth::login(&api_url).await?;
+        Commands::Login { api_url, method } => {
+            let method = match method.as_deref() {
+                Some(m) => Some(
+                    auth::LoginMethod::parse(m)
+                        .ok_or_else(|| anyhow::anyhow!("Invalid --method: {m}. Use 'browser' or 'password'"))?,
+                ),
+                None => None,
+            };
+            auth::login(&api_url, method).await?;
         }
         Commands::Auth { api_url } => {
             let token = std::env::var("PULLWEIGHTS_TOKEN").ok();
