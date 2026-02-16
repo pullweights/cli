@@ -70,8 +70,7 @@ pub async fn login(api_url: &str, method: Option<LoginMethod>) -> Result<()> {
 
 /// Prompt user to choose login method interactively.
 async fn prompt_login_method(api_url: &str) -> Result<LoginMethod> {
-    // Check if OAuth providers are available
-    let has_oauth = check_oauth_providers(api_url).await;
+    let has_oauth = !fetch_oauth_providers(api_url).await.is_empty();
 
     if !has_oauth {
         // No OAuth configured — go straight to email/password
@@ -98,11 +97,11 @@ async fn prompt_login_method(api_url: &str) -> Result<LoginMethod> {
     }
 }
 
-/// Check if the API has any OAuth providers configured.
-async fn check_oauth_providers(api_url: &str) -> bool {
+/// Fetch available OAuth providers from the API.
+async fn fetch_oauth_providers(api_url: &str) -> Vec<String> {
     let client = match api_client(None) {
         Ok(c) => c,
-        Err(_) => return false,
+        Err(_) => return vec![],
     };
     let resp = client
         .get(format!("{api_url}/v1/auth/providers"))
@@ -112,19 +111,60 @@ async fn check_oauth_providers(api_url: &str) -> bool {
         Ok(r) if r.status().is_success() => r
             .json::<ProvidersResponse>()
             .await
-            .map(|p| !p.providers.is_empty())
-            .unwrap_or(false),
-        _ => false,
+            .map(|p| p.providers)
+            .unwrap_or_default(),
+        _ => vec![],
+    }
+}
+
+/// Prompt user to pick an OAuth provider.
+fn prompt_provider(providers: &[String]) -> Result<String> {
+    if providers.len() == 1 {
+        return Ok(providers[0].clone());
+    }
+
+    eprintln!("Choose a provider:");
+    for (i, p) in providers.iter().enumerate() {
+        let label = match p.as_str() {
+            "github" => "GitHub",
+            "google" => "Google",
+            other => other,
+        };
+        eprintln!("  [{}] {}", i + 1, label);
+    }
+    eprint!("Choice [1]: ");
+    io::stderr().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim();
+
+    if input.is_empty() {
+        return Ok(providers[0].clone());
+    }
+
+    match input.parse::<usize>() {
+        Ok(n) if n >= 1 && n <= providers.len() => Ok(providers[n - 1].clone()),
+        _ => {
+            eprintln!("Invalid choice, using {}", providers[0]);
+            Ok(providers[0].clone())
+        }
     }
 }
 
 /// Login via browser OAuth flow.
 async fn login_browser(api_url: &str) -> Result<()> {
+    let providers = fetch_oauth_providers(api_url).await;
+    if providers.is_empty() {
+        bail!("No OAuth providers available. Use email/password login instead.");
+    }
+
+    let provider = prompt_provider(&providers)?;
+
     // Start local callback server
     let (port, rx) = oauth_server::start_callback_server().await?;
 
-    // Build the OAuth URL (default to github, user can pick on the web page)
-    let url = format!("{api_url}/v1/auth/oauth/github?cli_port={port}");
+    let url = format!("{api_url}/v1/auth/oauth/{provider}?cli_port={port}");
 
     eprintln!("Opening browser for login...");
 
