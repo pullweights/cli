@@ -42,6 +42,9 @@ enum Commands {
         /// Make the model private (default: public)
         #[arg(long)]
         private: bool,
+        /// Model version description
+        #[arg(long, short)]
+        description: Option<String>,
     },
     /// Pull a model from the registry
     Pull {
@@ -159,12 +162,21 @@ async fn main() -> anyhow::Result<()> {
             model_ref,
             files,
             private,
+            description,
         } => {
             let cfg = config::CliConfig::load()?;
             let token = utils::require_token(cfg.token.as_deref())?;
             let api_url = resolve_api_url(&cfg);
             let visibility = if private { "private" } else { "public" };
-            push::push(&api_url, &token, &model_ref, &files, visibility).await?;
+            push::push(
+                &api_url,
+                &token,
+                &model_ref,
+                &files,
+                visibility,
+                description.as_deref(),
+            )
+            .await?;
         }
         Commands::Pull { model_ref, output } => {
             let cfg = config::CliConfig::load()?;

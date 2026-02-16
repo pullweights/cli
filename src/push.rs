@@ -14,6 +14,7 @@ use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 struct PushInitRequest {
     tag: String,
     visibility: Option<String>,
+    description: Option<String>,
     files: Vec<FileEntry>,
 }
 
@@ -68,6 +69,7 @@ pub async fn push(
     model_ref: &str,
     files: &[String],
     visibility: &str,
+    description: Option<&str>,
 ) -> Result<()> {
     let parsed = parse_model_ref(model_ref)?;
     let tag = parsed
@@ -118,6 +120,7 @@ pub async fn push(
     let init_req = PushInitRequest {
         tag: tag.to_string(),
         visibility: Some(visibility.to_string()),
+        description: description.map(|s| s.to_string()),
         files: file_entries
             .iter()
             .map(|(filename, sha, size, _)| FileEntry {
