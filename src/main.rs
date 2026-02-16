@@ -141,10 +141,9 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Login { api_url, method } => {
             let method = match method.as_deref() {
-                Some(m) => Some(
-                    auth::LoginMethod::parse(m)
-                        .ok_or_else(|| anyhow::anyhow!("Invalid --method: {m}. Use 'browser' or 'password'"))?,
-                ),
+                Some(m) => Some(auth::LoginMethod::parse(m).ok_or_else(|| {
+                    anyhow::anyhow!("Invalid --method: {m}. Use 'browser' or 'password'")
+                })?),
                 None => None,
             };
             auth::login(&api_url, method).await?;
