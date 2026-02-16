@@ -28,7 +28,7 @@ pub async fn ls(api_url: &str, token: &str, org: Option<&str>) -> Result<()> {
 async fn list_orgs(api_url: &str, token: &str) -> Result<()> {
     let client = api_client(Some(token))?;
     let resp = client
-        .get(format!("{api_url}/v1/orgs/"))
+        .get(format!("{api_url}/v1/orgs"))
         .send()
         .await
         .context("Failed to connect to API server")?;
