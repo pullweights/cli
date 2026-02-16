@@ -25,6 +25,9 @@ enum Commands {
     },
     /// Authenticate with an API key (for CI/CD or programmatic access)
     Auth {
+        /// API key (or set PULLWEIGHTS_TOKEN env var, or omit for interactive prompt)
+        #[arg(long)]
+        token: Option<String>,
         /// API URL override
         #[arg(long)]
         api_url: Option<String>,
@@ -148,8 +151,8 @@ async fn main() -> anyhow::Result<()> {
             };
             auth::login(&api_url, method).await?;
         }
-        Commands::Auth { api_url } => {
-            let token = std::env::var("PULLWEIGHTS_TOKEN").ok();
+        Commands::Auth { token, api_url } => {
+            let token = token.or_else(|| std::env::var("PULLWEIGHTS_TOKEN").ok());
             auth::auth_with_key(token.as_deref(), api_url.as_deref()).await?;
         }
         Commands::Push {
