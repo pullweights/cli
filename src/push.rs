@@ -1,9 +1,11 @@
 use anyhow::{bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use reqwest::Body;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use tokio_util::io::ReaderStream;
 
-use crate::checksum::sha256_hex;
+use crate::checksum::sha256_reader;
 use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 
 // ---------------------------------------------------------------------------
@@ -84,8 +86,8 @@ pub async fn push(
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("Tag is required for push. Use org/model:tag format"))?;
 
-    // Validate files and compute checksums
-    let mut file_entries: Vec<(String, String, u64, Vec<u8>)> = Vec::new(); // (filename, sha256, size, data)
+    // Validate files and compute checksums (streaming — no full file in memory)
+    let mut file_entries: Vec<(String, String, u64, String)> = Vec::new(); // (filename, sha256, size, path)
 
     for file_path in files {
         let path = Path::new(file_path);
@@ -95,15 +97,18 @@ pub async fn push(
         if !path.is_file() {
             bail!("Not a file: {file_path}");
         }
-        let data =
-            std::fs::read(path).with_context(|| format!("Failed to read file: {file_path}"))?;
-        let sha = sha256_hex(&data);
+        let metadata = std::fs::metadata(path)
+            .with_context(|| format!("Failed to stat file: {file_path}"))?;
+        let size = metadata.len();
+        let file = std::fs::File::open(path)
+            .with_context(|| format!("Failed to open file: {file_path}"))?;
+        let sha = sha256_reader(file)
+            .with_context(|| format!("Failed to hash file: {file_path}"))?;
         let filename = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| file_path.clone());
-        let size = data.len() as u64;
-        file_entries.push((filename, sha, size, data));
+        file_entries.push((filename, sha, size, file_path.clone()));
     }
 
     let total_size: u64 = file_entries.iter().map(|(_, _, s, _)| s).sum();
@@ -137,7 +142,7 @@ pub async fn push(
         model_type: Some(model_type.to_string()),
         files: file_entries
             .iter()
-            .map(|(filename, sha, size, _)| FileEntry {
+            .map(|(filename, sha, size, _path)| FileEntry {
                 filename: filename.clone(),
                 sha256: sha.clone(),
                 size_bytes: *size,
@@ -176,7 +181,7 @@ pub async fn push(
     let upload_client = reqwest::Client::new();
 
     for upload in &init_resp.uploads {
-        let (_, _, size, data) = file_entries
+        let (_, _, size, file_path) = file_entries
             .iter()
             .find(|(f, _, _, _)| f == &upload.filename)
             .ok_or_else(|| {
@@ -187,10 +192,18 @@ pub async fn push(
         pb.set_style(sty.clone());
         pb.set_prefix(upload.filename.clone());
 
+        // Stream file from disk — never load full file into memory
+        let file = tokio::fs::File::open(file_path)
+            .await
+            .with_context(|| format!("Failed to open {} for upload", upload.filename))?;
+        let stream = ReaderStream::new(file);
+        let body = Body::wrap_stream(stream);
+
         let resp = upload_client
             .put(&upload.upload_url)
             .header("content-type", "application/octet-stream")
-            .body(data.clone())
+            .header("content-length", size.to_string())
+            .body(body)
             .send()
             .await
             .with_context(|| format!("Failed to upload {}", upload.filename))?;
