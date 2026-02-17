@@ -2,6 +2,7 @@ pub mod api_key;
 pub mod auth;
 pub mod checksum;
 pub mod config;
+pub mod delete;
 pub mod inspect;
 pub mod ls;
 pub mod manifest;

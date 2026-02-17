@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 use pullweights_cli::{
-    api_key, auth, config, inspect, ls, pull, push, search, tags, utils, verify,
+    api_key, auth, config, delete, inspect, ls, pull, push, search, tags, utils, verify,
 };
 
 #[derive(Parser)]
@@ -55,6 +55,14 @@ enum Commands {
         /// Type: "model" or "dataset"
         #[arg(long = "type", default_value = "model")]
         model_type: String,
+    },
+    /// Delete a model from the registry (requires org admin)
+    Delete {
+        /// Model reference (org/model)
+        model_ref: String,
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Pull a model from the registry
     Pull {
@@ -198,6 +206,23 @@ async fn main() -> anyhow::Result<()> {
                 &model_type,
             )
             .await?;
+        }
+        Commands::Delete { model_ref, yes } => {
+            let cfg = config::CliConfig::load()?;
+            let token = utils::require_token(cfg.token.as_deref())?;
+            let api_url = resolve_api_url(&cfg);
+            if !yes {
+                eprint!(
+                    "Are you sure you want to delete '{model_ref}'? This cannot be undone. [y/N] "
+                );
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                if !input.trim().eq_ignore_ascii_case("y") {
+                    println!("Aborted.");
+                    return Ok(());
+                }
+            }
+            delete::delete(&api_url, &token, &model_ref).await?;
         }
         Commands::Pull { model_ref, output } => {
             let cfg = config::CliConfig::load()?;
