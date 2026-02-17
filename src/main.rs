@@ -6,7 +6,7 @@ use pullweights_cli::{
 
 #[derive(Parser)]
 #[command(name = "pullweights")]
-#[command(about = "AI Model Registry CLI — push, pull, and manage ML models")]
+#[command(about = "AI Model Registry CLI — push, pull, and manage ML models and datasets")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
