@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use futures_util::StreamExt;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::Deserialize;
 use std::path::{Component, Path};
@@ -101,17 +102,24 @@ pub async fn pull(api_url: &str, token: &str, model_ref: &str, output: &str) -> 
             bail!("Failed to download {} ({status})", download.filename);
         }
 
-        let bytes = resp.bytes().await?;
-        let mut hasher = StreamingHasher::new();
-        hasher.update(&bytes);
-
         let mut file = tokio::fs::File::create(&file_path)
             .await
             .with_context(|| format!("Failed to create file: {}", file_path.display()))?;
-        file.write_all(&bytes).await?;
-        file.flush().await?;
 
-        pb.set_position(download.size_bytes);
+        let mut hasher = StreamingHasher::new();
+        let mut stream = resp.bytes_stream();
+        let mut downloaded: u64 = 0;
+
+        while let Some(chunk) = stream.next().await {
+            let chunk =
+                chunk.with_context(|| format!("Download interrupted: {}", download.filename))?;
+            hasher.update(&chunk);
+            file.write_all(&chunk).await?;
+            downloaded += chunk.len() as u64;
+            pb.set_position(downloaded);
+        }
+
+        file.flush().await?;
         pb.finish();
 
         // Verify checksum
