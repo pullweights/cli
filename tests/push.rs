@@ -61,6 +61,7 @@ async fn test_push_full_flow() {
         &files,
         "public",
         None,
+        "model",
     )
     .await;
     assert!(result.is_ok());
@@ -75,6 +76,7 @@ async fn test_push_requires_tag() {
         &["file.bin".to_string()],
         "public",
         None,
+        "model",
     )
     .await;
     assert!(result.is_err());
@@ -94,6 +96,7 @@ async fn test_push_file_not_found() {
         &["/nonexistent/file.bin".to_string()],
         "public",
         None,
+        "model",
     )
     .await;
     assert!(result.is_err());
@@ -119,7 +122,7 @@ async fn test_push_init_failure() {
 
     let files = vec![file_path.to_string_lossy().to_string()];
     let result =
-        pullweights_cli::push::push(&server.uri(), "tok", "org/model:v1", &files, "public", None)
+        pullweights_cli::push::push(&server.uri(), "tok", "org/model:v1", &files, "public", None, "model")
             .await;
     assert!(result.is_err());
 }

@@ -3,6 +3,10 @@ use serde::Deserialize;
 
 use crate::utils::{api_client, sanitize_error};
 
+fn default_model_type() -> String {
+    "model".to_string()
+}
+
 #[derive(Deserialize)]
 struct ModelItem {
     name: String,
@@ -10,6 +14,8 @@ struct ModelItem {
     visibility: String,
     tags: Vec<String>,
     download_count: i64,
+    #[serde(rename = "type", default = "default_model_type")]
+    model_type: String,
 }
 
 #[derive(Deserialize)]
@@ -92,9 +98,14 @@ async fn list_models(api_url: &str, token: &str, org: &str) -> Result<()> {
             .chars()
             .take(40)
             .collect::<String>();
+        let badge = if m.model_type == "dataset" {
+            " [dataset]"
+        } else {
+            ""
+        };
         println!(
             "{:<30} {:<10} {:<8} {:<10} {}",
-            format!("{org}/{}", m.name),
+            format!("{org}/{}{}", m.name, badge),
             m.visibility,
             m.tags.len(),
             m.download_count,

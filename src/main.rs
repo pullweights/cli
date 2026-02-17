@@ -52,6 +52,9 @@ enum Commands {
         /// Model version description
         #[arg(long, short)]
         description: Option<String>,
+        /// Type: "model" or "dataset"
+        #[arg(long = "type", default_value = "model")]
+        model_type: String,
     },
     /// Pull a model from the registry
     Pull {
@@ -73,6 +76,9 @@ enum Commands {
         /// Maximum results
         #[arg(short, long, default_value = "20")]
         limit: u32,
+        /// Filter by type: "model" or "dataset"
+        #[arg(long = "type")]
+        model_type: Option<String>,
     },
     /// Inspect model manifest
     Inspect {
@@ -176,6 +182,7 @@ async fn main() -> anyhow::Result<()> {
             files,
             private,
             description,
+            model_type,
         } => {
             let cfg = config::CliConfig::load()?;
             let token = utils::require_token(cfg.token.as_deref())?;
@@ -188,6 +195,7 @@ async fn main() -> anyhow::Result<()> {
                 &files,
                 visibility,
                 description.as_deref(),
+                &model_type,
             )
             .await?;
         }
@@ -203,11 +211,16 @@ async fn main() -> anyhow::Result<()> {
             let api_url = resolve_api_url(&cfg);
             tags::list_tags(&api_url, &token, &model_ref).await?;
         }
-        Commands::Search { query, limit } => {
+        Commands::Search {
+            query,
+            limit,
+            model_type,
+        } => {
             let cfg = config::CliConfig::load()?;
             let api_url = resolve_api_url(&cfg);
             let token = utils::require_token(cfg.token.as_deref()).ok();
-            search::search(&api_url, token.as_deref(), &query, limit).await?;
+            search::search(&api_url, token.as_deref(), &query, limit, model_type.as_deref())
+                .await?;
         }
         Commands::Inspect { model_ref } => {
             let cfg = config::CliConfig::load()?;

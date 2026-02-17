@@ -15,6 +15,8 @@ struct PushInitRequest {
     tag: String,
     visibility: Option<String>,
     description: Option<String>,
+    #[serde(rename = "type")]
+    model_type: Option<String>,
     files: Vec<FileEntry>,
 }
 
@@ -70,7 +72,12 @@ pub async fn push(
     files: &[String],
     visibility: &str,
     description: Option<&str>,
+    model_type: &str,
 ) -> Result<()> {
+    if model_type != "model" && model_type != "dataset" {
+        bail!("Invalid --type '{model_type}'. Must be 'model' or 'dataset'");
+    }
+
     let parsed = parse_model_ref(model_ref)?;
     let tag = parsed
         .tag
@@ -105,8 +112,14 @@ pub async fn push(
     } else {
         ""
     };
+    let type_label = if model_type == "dataset" {
+        "dataset"
+    } else {
+        "model"
+    };
     println!(
-        "Pushing {}/{}{} ({} files, {})",
+        "Pushing {} {}/{}{} ({} files, {})",
+        type_label,
         parsed.org,
         parsed.model,
         vis_label,
@@ -121,6 +134,7 @@ pub async fn push(
         tag: tag.to_string(),
         visibility: Some(visibility.to_string()),
         description: description.map(|s| s.to_string()),
+        model_type: Some(model_type.to_string()),
         files: file_entries
             .iter()
             .map(|(filename, sha, size, _)| FileEntry {

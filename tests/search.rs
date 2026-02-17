@@ -23,7 +23,7 @@ async fn test_search_returns_results() {
         .await;
 
     let result =
-        pullweights_cli::search::search(&server.uri(), Some("test-token"), "llama", 10).await;
+        pullweights_cli::search::search(&server.uri(), Some("test-token"), "llama", 10, None).await;
     assert!(result.is_ok());
 }
 
@@ -40,7 +40,7 @@ async fn test_search_no_results() {
         .await;
 
     let result =
-        pullweights_cli::search::search(&server.uri(), Some("tok"), "nonexistent", 20).await;
+        pullweights_cli::search::search(&server.uri(), Some("tok"), "nonexistent", 20, None).await;
     assert!(result.is_ok());
 }
 
@@ -56,7 +56,7 @@ async fn test_search_without_auth() {
         .mount(&server)
         .await;
 
-    let result = pullweights_cli::search::search(&server.uri(), None, "test", 20).await;
+    let result = pullweights_cli::search::search(&server.uri(), None, "test", 20, None).await;
     assert!(result.is_ok());
 }
 
@@ -69,6 +69,6 @@ async fn test_search_api_error() {
         .mount(&server)
         .await;
 
-    let result = pullweights_cli::search::search(&server.uri(), Some("tok"), "test", 20).await;
+    let result = pullweights_cli::search::search(&server.uri(), Some("tok"), "test", 20, None).await;
     assert!(result.is_err());
 }
