@@ -75,6 +75,101 @@ jobs:
           name: ${{ matrix.binary }}
           path: ${{ matrix.binary }}
 
+  deb:
+    name: Build .deb (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            target: x86_64-unknown-linux-gnu
+          - arch: arm64
+            target: aarch64-unknown-linux-gnu
+            cross: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: deb-${{ matrix.target }}
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Install cross-compilation deps (ARM64)
+        if: matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build .deb
+        run: cargo deb --target=${{ matrix.target }}
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: target/${{ matrix.target }}/debian/*.deb
+
+  apt-repo:
+    name: Publish APT Repository
+    needs: deb
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download .deb artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          path: debs
+          merge-multiple: true
+
+      - name: Install reprepro
+        run: sudo apt-get update && sudo apt-get install -y reprepro
+
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.APT_GPG_PRIVATE_KEY }}" | gpg --batch --import
+
+      - name: Export public key
+        run: |
+          mkdir -p repo
+          gpg --armor --export "${{ vars.APT_GPG_KEY_ID }}" > repo/gpg
+
+      - name: Create CNAME
+        run: echo "apt.pullweights.com" > repo/CNAME
+
+      - name: Configure reprepro
+        run: |
+          mkdir -p repo/conf
+          cat > repo/conf/distributions << 'CONF'
+          Origin: PullWeights
+          Label: PullWeights
+          Codename: stable
+          Architectures: amd64 arm64
+          Components: main
+          Description: PullWeights CLI packages
+          SignWith: ${{ vars.APT_GPG_KEY_ID }}
+          CONF
+
+      - name: Add .deb packages
+        run: |
+          for deb in debs/*.deb; do
+            reprepro -b repo includedeb stable "$deb"
+          done
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.APT_DEPLOY_KEY }}
+          external_repository: pullweights/apt
+          publish_branch: gh-pages
+          publish_dir: repo
+
   release:
     name: Create Release
     needs: build

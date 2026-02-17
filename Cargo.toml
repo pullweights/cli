@@ -30,6 +30,19 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 thiserror = "2"
 
+[package.metadata.deb]
+name = "pullweights"
+maintainer = "PullWeights <support@pullweights.com>"
+copyright = "2024-2026, PullWeights Inc."
+license-file = ["LICENSE", "0"]
+extended-description = "Push, pull, tag, and version AI models from the command line."
+depends = ""
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/pullweights", "usr/bin/pullweights", "755"],
+]
+
 [dev-dependencies]
 wiremock = "0.6"
 tempfile = "3"
