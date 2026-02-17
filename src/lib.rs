@@ -4,6 +4,7 @@ pub mod checksum;
 pub mod config;
 pub mod delete;
 pub mod inspect;
+pub mod logout;
 pub mod ls;
 pub mod manifest;
 pub mod oauth_server;

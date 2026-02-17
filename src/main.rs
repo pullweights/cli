@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 use pullweights_cli::{
-    api_key, auth, config, delete, inspect, ls, pull, push, search, tags, utils, verify,
+    api_key, auth, config, delete, inspect, logout, ls, pull, push, search, tags, utils, verify,
 };
 
 #[derive(Parser)]
@@ -34,6 +34,8 @@ enum Commands {
         #[arg(long)]
         api_url: Option<String>,
     },
+    /// Log out and clear saved credentials
+    Logout,
     /// List models in an org, or list your orgs
     Ls {
         /// Organization name (omit to list your orgs)
@@ -178,6 +180,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::Auth { token, api_url } => {
             let token = token.or_else(|| std::env::var("PULLWEIGHTS_TOKEN").ok());
             auth::auth_with_key(token.as_deref(), api_url.as_deref()).await?;
+        }
+        Commands::Logout => {
+            logout::logout()?;
         }
         Commands::Ls { org } => {
             let cfg = config::CliConfig::load()?;
