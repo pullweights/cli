@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="logo.png" width="120" alt="PullWeights">
   <h1 align="center">PullWeights</h1>
   <p align="center">
     <strong>Push, pull, and manage AI models & datasets from your terminal.</strong>
