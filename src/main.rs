@@ -244,8 +244,14 @@ async fn main() -> anyhow::Result<()> {
             let cfg = config::CliConfig::load()?;
             let api_url = resolve_api_url(&cfg);
             let token = utils::require_token(cfg.token.as_deref()).ok();
-            search::search(&api_url, token.as_deref(), &query, limit, model_type.as_deref())
-                .await?;
+            search::search(
+                &api_url,
+                token.as_deref(),
+                &query,
+                limit,
+                model_type.as_deref(),
+            )
+            .await?;
         }
         Commands::Inspect { model_ref } => {
             let cfg = config::CliConfig::load()?;

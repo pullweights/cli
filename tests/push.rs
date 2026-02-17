@@ -121,8 +121,15 @@ async fn test_push_init_failure() {
         .await;
 
     let files = vec![file_path.to_string_lossy().to_string()];
-    let result =
-        pullweights_cli::push::push(&server.uri(), "tok", "org/model:v1", &files, "public", None, "model")
-            .await;
+    let result = pullweights_cli::push::push(
+        &server.uri(),
+        "tok",
+        "org/model:v1",
+        &files,
+        "public",
+        None,
+        "model",
+    )
+    .await;
     assert!(result.is_err());
 }

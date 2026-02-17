@@ -69,6 +69,7 @@ async fn test_search_api_error() {
         .mount(&server)
         .await;
 
-    let result = pullweights_cli::search::search(&server.uri(), Some("tok"), "test", 20, None).await;
+    let result =
+        pullweights_cli::search::search(&server.uri(), Some("tok"), "test", 20, None).await;
     assert!(result.is_err());
 }
