@@ -54,7 +54,7 @@ enum Commands {
         /// Model version description
         #[arg(long, short)]
         description: Option<String>,
-        /// Type: "model" or "dataset"
+        /// Type: "model", "dataset", or "container_image"
         #[arg(long = "type", default_value = "model")]
         model_type: String,
     },

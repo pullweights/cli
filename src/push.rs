@@ -158,8 +158,8 @@ pub async fn push(
     description: Option<&str>,
     model_type: &str,
 ) -> Result<()> {
-    if model_type != "model" && model_type != "dataset" {
-        bail!("Invalid --type '{model_type}'. Must be 'model' or 'dataset'");
+    if model_type != "model" && model_type != "dataset" && model_type != "container_image" {
+        bail!("Invalid --type '{model_type}'. Must be 'model', 'dataset', or 'container_image'");
     }
 
     let parsed = parse_model_ref(model_ref)?;
@@ -200,10 +200,10 @@ pub async fn push(
     } else {
         ""
     };
-    let type_label = if model_type == "dataset" {
-        "dataset"
-    } else {
-        "model"
+    let type_label = match model_type {
+        "dataset" => "dataset",
+        "container_image" => "container image",
+        _ => "model",
     };
     println!(
         "Pushing {} {}/{}{} ({} files, {})",
