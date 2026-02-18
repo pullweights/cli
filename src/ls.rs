@@ -98,10 +98,10 @@ async fn list_models(api_url: &str, token: &str, org: &str) -> Result<()> {
             .chars()
             .take(40)
             .collect::<String>();
-        let badge = if m.model_type == "dataset" {
-            " [dataset]"
-        } else {
-            ""
+        let badge = match m.model_type.as_str() {
+            "dataset" => " [dataset]",
+            "container_image" => " [container]",
+            _ => "",
         };
         println!(
             "{:<30} {:<10} {:<8} {:<10} {}",

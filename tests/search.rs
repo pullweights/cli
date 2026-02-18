@@ -61,6 +61,64 @@ async fn test_search_without_auth() {
 }
 
 #[tokio::test]
+async fn test_search_with_type_filter() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/search"))
+        .and(query_param("q", "postgres"))
+        .and(query_param("type", "container_image"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "results": [
+                {
+                    "org_name": "pullweights",
+                    "name": "postgres",
+                    "description": "PostgreSQL container",
+                    "download_count": 50,
+                    "type": "container_image"
+                }
+            ],
+            "total": 1
+        })))
+        .mount(&server)
+        .await;
+
+    let result = pullweights_cli::search::search(
+        &server.uri(),
+        Some("tok"),
+        "postgres",
+        20,
+        Some("container_image"),
+    )
+    .await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_search_dataset_badge() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/search"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "results": [
+                {
+                    "org_name": "acme",
+                    "name": "train-data",
+                    "description": "Training dataset",
+                    "download_count": 10,
+                    "type": "dataset"
+                }
+            ],
+            "total": 1
+        })))
+        .mount(&server)
+        .await;
+
+    let result =
+        pullweights_cli::search::search(&server.uri(), Some("tok"), "data", 20, None).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
 async fn test_search_api_error() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

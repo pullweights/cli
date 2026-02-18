@@ -6,7 +6,7 @@ use pullweights_cli::{
 
 #[derive(Parser)]
 #[command(name = "pullweights")]
-#[command(about = "AI Model Registry CLI — push, pull, and manage ML models and datasets")]
+#[command(about = "AI Registry CLI — push, pull, and manage models, datasets, and container images")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -86,7 +86,7 @@ enum Commands {
         /// Maximum results
         #[arg(short, long, default_value = "20")]
         limit: u32,
-        /// Filter by type: "model" or "dataset"
+        /// Filter by type: "model", "dataset", or "container_image"
         #[arg(long = "type")]
         model_type: Option<String>,
     },

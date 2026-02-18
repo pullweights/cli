@@ -62,10 +62,10 @@ pub async fn search(
 
     for result in &search_resp.results {
         let desc = result.description.as_deref().unwrap_or("");
-        let badge = if result.model_type == "dataset" {
-            " [dataset]"
-        } else {
-            ""
+        let badge = match result.model_type.as_str() {
+            "dataset" => " [dataset]",
+            "container_image" => " [container]",
+            _ => "",
         };
 
         println!(
