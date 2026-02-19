@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use pullweights_common::checksum::sha256_reader;
 use reqwest::Body;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -7,16 +8,15 @@ use std::io::Read;
 use std::path::Path;
 use tokio_util::io::ReaderStream;
 
-use crate::checksum::sha256_reader;
 use crate::utils::{api_client, format_bytes, parse_model_ref, sanitize_error};
 
 /// Threshold for CDC chunking: files above 100 MB are chunked.
 const CHUNKING_THRESHOLD: u64 = 100 * 1024 * 1024;
 
-/// FastCDC parameters
+/// FastCDC parameters (avg must be <= fastcdc AVERAGE_MAX of 4 MB)
 const CDC_MIN_SIZE: u32 = 1024 * 1024; // 1 MB
-const CDC_AVG_SIZE: u32 = 8 * 1024 * 1024; // 8 MB
-const CDC_MAX_SIZE: u32 = 32 * 1024 * 1024; // 32 MB
+const CDC_AVG_SIZE: u32 = 4 * 1024 * 1024; // 4 MB
+const CDC_MAX_SIZE: u32 = 16 * 1024 * 1024; // 16 MB
 
 // ---------------------------------------------------------------------------
 // API types (regular push)

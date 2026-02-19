@@ -15,7 +15,8 @@ fn default_model_type() -> String {
 
 #[derive(Deserialize)]
 struct SearchResult {
-    org_name: String,
+    #[serde(alias = "org_name")]
+    org: String,
     name: String,
     description: Option<String>,
     download_count: u64,
@@ -70,7 +71,7 @@ pub async fn search(
 
         println!(
             "  {}/{}{}  {} downloads",
-            result.org_name, result.name, badge, result.download_count
+            result.org, result.name, badge, result.download_count
         );
         if !desc.is_empty() {
             println!("    {desc}");
