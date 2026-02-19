@@ -12,5 +12,6 @@ pub mod pull;
 pub mod push;
 pub mod search;
 pub mod tags;
+pub mod update;
 pub mod utils;
 pub mod verify;

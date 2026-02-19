@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand};
 
 use pullweights_cli::{
-    api_key, auth, config, delete, inspect, logout, ls, pull, push, search, tags, utils, verify,
+    api_key, auth, config, delete, inspect, logout, ls, pull, push, search, tags, update, utils,
+    verify,
 };
 
 #[derive(Parser)]
@@ -102,6 +103,14 @@ enum Commands {
         /// Directory with model files
         #[arg(short, long, default_value = ".")]
         dir: String,
+    },
+    /// Update model metadata (description, etc.)
+    Update {
+        /// Model reference (org/model)
+        model_ref: String,
+        /// New description (or @path/to/file.md to read from file)
+        #[arg(long, short)]
+        description: String,
     },
     /// Manage API keys
     #[command(name = "api-key")]
@@ -269,6 +278,15 @@ async fn main() -> anyhow::Result<()> {
             let token = utils::require_token(cfg.token.as_deref())?;
             let api_url = resolve_api_url(&cfg);
             verify::verify(&api_url, &token, &model_ref, &dir).await?;
+        }
+        Commands::Update {
+            model_ref,
+            description,
+        } => {
+            let cfg = config::CliConfig::load()?;
+            let token = utils::require_token(cfg.token.as_deref())?;
+            let api_url = resolve_api_url(&cfg);
+            update::run(&api_url, &token, &model_ref, &description).await?;
         }
         Commands::ApiKey { action } => {
             let cfg = config::CliConfig::load()?;
