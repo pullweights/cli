@@ -3,6 +3,7 @@ pub mod auth;
 pub mod checksum;
 pub mod config;
 pub mod delete;
+pub mod deploy;
 pub mod inspect;
 pub mod logout;
 pub mod ls;

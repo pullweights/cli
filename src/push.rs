@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use pullweights_common::checksum::sha256_reader;
+use crate::checksum::sha256_reader;
 use reqwest::Body;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

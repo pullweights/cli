@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 
 use pullweights_cli::{
-    api_key, auth, config, delete, inspect, logout, ls, pull, push, search, tags, update, utils,
-    verify,
+    api_key, auth, config, delete, deploy, inspect, logout, ls, pull, push, search, tags, update,
+    utils, verify,
 };
 
 #[derive(Parser)]
@@ -112,6 +112,11 @@ enum Commands {
         #[arg(long, short)]
         description: String,
     },
+    /// Deploy a model to GPU infrastructure
+    Deploy {
+        #[command(subcommand)]
+        action: DeployAction,
+    },
     /// Manage API keys
     #[command(name = "api-key")]
     ApiKey {
@@ -153,6 +158,57 @@ enum ApiKeyAction {
     /// Revoke an API key
     Revoke {
         /// API key ID (UUID)
+        id: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeployAction {
+    /// Deploy a model (one-click)
+    Run {
+        /// Model reference (org/model or org/model:tag)
+        model_ref: String,
+        /// Number of GPUs
+        #[arg(long, default_value = "1")]
+        gpu_count: u32,
+        /// Container memory (e.g. 16Gi, 32Gi)
+        #[arg(long, default_value = "32Gi")]
+        memory: String,
+        /// Port for the inference server
+        #[arg(long, default_value = "8000")]
+        port: u16,
+        /// Time-to-live in seconds (auto-shutdown timer)
+        #[arg(long, default_value = "3600")]
+        ttl: u64,
+        /// Extra vLLM arguments (e.g. "--max-model-len 4096")
+        #[arg(long)]
+        vllm_args: Option<String>,
+        /// Deployment provider
+        #[arg(long, default_value = "basilica")]
+        provider: String,
+        /// API key for private model access (inside the container)
+        #[arg(long)]
+        api_key: Option<String>,
+        /// Don't wait for deployment to become ready
+        #[arg(long)]
+        no_wait: bool,
+    },
+    /// List your deployments
+    #[command(name = "ls")]
+    List,
+    /// Show deployment status
+    Status {
+        /// Deployment ID
+        id: String,
+    },
+    /// Stop a running deployment
+    Stop {
+        /// Deployment ID
+        id: String,
+    },
+    /// View deployment logs
+    Logs {
+        /// Deployment ID
         id: String,
     },
 }
@@ -287,6 +343,51 @@ async fn main() -> anyhow::Result<()> {
             let token = utils::require_token(cfg.token.as_deref())?;
             let api_url = resolve_api_url(&cfg);
             update::run(&api_url, &token, &model_ref, &description).await?;
+        }
+        Commands::Deploy { action } => {
+            let cfg = config::CliConfig::load()?;
+            let token = utils::require_token(cfg.token.as_deref())?;
+            let api_url = resolve_api_url(&cfg);
+            match action {
+                DeployAction::Run {
+                    model_ref,
+                    gpu_count,
+                    memory,
+                    port,
+                    ttl,
+                    vllm_args,
+                    provider,
+                    api_key,
+                    no_wait,
+                } => {
+                    deploy::deploy(&deploy::DeployParams {
+                        api_url: &api_url,
+                        token: &token,
+                        model_ref: &model_ref,
+                        gpu_count,
+                        memory: &memory,
+                        port,
+                        ttl_seconds: ttl,
+                        vllm_args: vllm_args.as_deref(),
+                        provider: &provider,
+                        api_key_for_model: api_key.as_deref(),
+                        no_wait,
+                    })
+                    .await?;
+                }
+                DeployAction::List => {
+                    deploy::list(&api_url, &token).await?;
+                }
+                DeployAction::Status { id } => {
+                    deploy::status(&api_url, &token, &id).await?;
+                }
+                DeployAction::Stop { id } => {
+                    deploy::stop(&api_url, &token, &id).await?;
+                }
+                DeployAction::Logs { id } => {
+                    deploy::logs(&api_url, &token, &id).await?;
+                }
+            }
         }
         Commands::ApiKey { action } => {
             let cfg = config::CliConfig::load()?;
