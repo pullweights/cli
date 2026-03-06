@@ -93,7 +93,8 @@ pub async fn deploy(params: &DeployParams<'_>) -> Result<()> {
         bail!("Deploy failed ({status}): {}", sanitize_error(&body));
     }
 
-    let deployment: DeploymentResponse = resp.json().await.context("Invalid deployment response")?;
+    let deployment: DeploymentResponse =
+        resp.json().await.context("Invalid deployment response")?;
 
     eprintln!("Deployment created: {}", deployment.provider_name);
 
@@ -154,8 +155,7 @@ pub async fn list(api_url: &str, token: &str) -> Result<()> {
         );
     }
 
-    let deployments: Vec<DeploymentResponse> =
-        resp.json().await.context("Invalid response")?;
+    let deployments: Vec<DeploymentResponse> = resp.json().await.context("Invalid response")?;
 
     if deployments.is_empty() {
         eprintln!("No deployments found.");
@@ -164,10 +164,7 @@ pub async fn list(api_url: &str, token: &str) -> Result<()> {
 
     for d in &deployments {
         let url_str = d.url.as_deref().unwrap_or("-");
-        println!(
-            "{:<38} {:<10} {}",
-            d.id, d.status, url_str
-        );
+        println!("{:<38} {:<10} {}", d.id, d.status, url_str);
     }
 
     Ok(())
@@ -210,10 +207,7 @@ pub async fn logs(api_url: &str, token: &str, deployment_id: &str) -> Result<()>
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!(
-            "Failed to get logs ({status}): {}",
-            sanitize_error(&body)
-        );
+        bail!("Failed to get logs ({status}): {}", sanitize_error(&body));
     }
 
     #[derive(Deserialize)]
@@ -279,9 +273,7 @@ async fn poll_deployment(api_url: &str, token: &str, deployment_id: &str) -> Res
             }
             "failed" => {
                 pb.finish_and_clear();
-                let msg = d
-                    .message
-                    .unwrap_or_else(|| "Unknown error".into());
+                let msg = d.message.unwrap_or_else(|| "Unknown error".into());
                 bail!("Deployment failed: {msg}");
             }
             "stopped" => {

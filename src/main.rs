@@ -7,7 +7,9 @@ use pullweights_cli::{
 
 #[derive(Parser)]
 #[command(name = "pullweights")]
-#[command(about = "AI Registry CLI — push, pull, and manage models, datasets, and container images")]
+#[command(
+    about = "AI Registry CLI — push, pull, and manage models, datasets, and container images"
+)]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
